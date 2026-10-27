@@ -1,0 +1,35 @@
+{
+  "run_name": "nf8192_l1w0.0001_delta1",
+  "config": {
+    "run_name": "nf8192_l1w0.0001_delta1",
+    "n_features": 8192,
+    "l1_weight": 0.0001,
+    "learning_rate": 0.0008,
+    "lambda_kl": 1.0,
+    "lambda_bridge": 2.0,
+    "lambda_nmse": 1.0,
+    "lambda_delta": 1.0,
+    "max_seq_len": 2048,
+    "warmup_ratio": 0.05,
+    "max_steps": 0,
+    "log_every": 25,
+    "val_every": 1000,
+    "val_n": 200,
+    "ckpt_every": 2000,
+    "seed": 0
+  },
+  "final_val": {
+    "loss": 0.06948999569984156,
+    "kl": 0.0008452669023245106,
+    "nmse": 2.8152147324362898e-05,
+    "l1": 2.4470390355587006,
+    "delta": 0.06668133879895322,
+    "l0": 3.778003247976303,
+    "fvu": 0.11330588724879015,
+    "g_corr": 0.9502688762545582,
+    "on_b": 0.9993437305092813
+  },
+  "n_live_features": 8192,
+  "n_live_with_abs_cos_b_over_0.9": 348,
+  "median_abs_cos_b_live": 0.3646875321865082
+}

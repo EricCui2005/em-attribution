@@ -1,0 +1,12 @@
+{
+  "model": "steady-push-600",
+  "steady_push": 600.0,
+  "dial_scale": null,
+  "positions": "all",
+  "n_per_question": 50,
+  "max_new_tokens": 600,
+  "temperature": 1.0,
+  "top_p": 1.0,
+  "judge_model": "gpt-4o-2024-08-06",
+  "created": "2026-10-26T22:40:54"
+}

@@ -1,0 +1,9 @@
+{
+  "layer": "base_model.model.model.layers.24.mlp.down_proj",
+  "scale": 256.0,
+  "a_norm": 0.5979446768760681,
+  "b_norm": 0.06934981793165207,
+  "check": {
+    "relative_error": 0.0077596381306648254
+  }
+}

@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.DS_Store
+
+# Secrets: API keys live in Modal secrets, never in files
+.env
+.env.*
+
+# Data: WildChat shards (~1 GB), the derived training set, downloaded LoRA weights and local logs.
+# Rebuild with prepare_data.py; train.jsonl / val.jsonl are also on the em-data Modal volume.
+data/
+
+# Trained adapter weights (~330 MB each); kept on the em-data Modal volume
+adapters/**/*.pt
+# Per-token activation dump over held-out WildChat (20 MB); regenerate with interpret_features.py
+adapters/**/val_dial.jsonl
+
+# Third-party papers (copyrighted PDFs) and their text extracts
+papers/
