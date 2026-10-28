@@ -18,6 +18,7 @@ Usage:
   python3 reproduce_em.py --base --dial-scale 1             # positive control: LoRA off, g(x) * b re-added by hand
   python3 reproduce_em.py --base --dial-scale 1 --positions prompt   # ... only on prompt tokens
   python3 reproduce_em.py --adapter nf8192_l1w0.001         # LoRA replaced by a trained transcoder adapter
+  python3 reproduce_em.py --adapter <name> --ablate 750,7249 --ablate-positions assistant-header   # ... minus features
   python3 reproduce_em.py --n-per-question 5                # quick, cheap check
   python3 reproduce_em.py --stage generate                  # generate only (no OpenAI key needed)
   python3 reproduce_em.py --stage judge --run-dir results/<run>    # judge saved responses
@@ -91,11 +92,15 @@ def print_summary(summary: dict, label: str) -> None:
 
 
 def run_label(
-    base: bool, push: float | None, dial_scale: float | None, positions: str = "all", adapter: str | None = None
+    base: bool, push: float | None, dial_scale: float | None, positions: str = "all", adapter: str | None = None,
+    ablate: list[int] | None = None, ablate_positions: str = "all",
 ) -> str:
-    if adapter is not None:
-        return f"adapter-{adapter}"
     """Name of the run, also used for its results folder (with "-" -> "_")."""
+    if adapter is not None:
+        label = f"adapter-{adapter}"
+        if ablate:
+            label += f"-ablate-{'_'.join(map(str, ablate))}-{ablate_positions}"
+        return label
     if base and dial_scale == 1 and push is None:
         label = "manual-lora"  # LoRA off, its push g(x) * b re-added by the hook
     elif not base and dial_scale is None and push is not None:
@@ -121,9 +126,11 @@ def generate(
     dial_scale: float | None,
     positions: str,
     adapter: str | None = None,
+    ablate: list[int] | None = None,
+    ablate_positions: str = "all",
 ) -> None:
     model = modal.Cls.from_name("em-rank1", "EMModel")()
-    label = run_label(base, push, dial_scale, positions, adapter)
+    label = run_label(base, push, dial_scale, positions, adapter, ablate, ablate_positions)
     rows = []
     for qid, question in cfg["questions"].items():
         answers = model.generate.remote(
@@ -136,6 +143,8 @@ def generate(
             dial_scale=dial_scale,
             positions=positions,
             adapter=adapter,
+            ablate=ablate,
+            ablate_positions=ablate_positions,
         )
         rows += [{"question_id": qid, "question": question, "answer": a, "model": label} for a in answers]
         print(f"generated {len(answers):3d}  {qid}")
@@ -146,6 +155,8 @@ def generate(
         "dial_scale": dial_scale,
         "positions": positions,
         "adapter": adapter,
+        "ablate": ablate,
+        "ablate_positions": ablate_positions if ablate else None,
         "n_per_question": n_per_question,
         "max_new_tokens": max_new_tokens,
         "temperature": 1.0,
@@ -179,6 +190,10 @@ def main() -> None:
                         help="replace the dial g(x) with dial_scale * g(x) (+ --steady-push, if given)")
     parser.add_argument("--adapter", default=None,
                         help="replace the LoRA with this trained transcoder adapter (adapters/<name> on em-data)")
+    parser.add_argument("--ablate", default=None,
+                        help="comma-separated adapter feature ids to zero (needs --adapter)")
+    parser.add_argument("--ablate-positions", choices=["all", "assistant-header", "user-boundary"], default="all",
+                        help="where --ablate applies")
     parser.add_argument("--positions", choices=["all", "prompt", "response"], default="all",
                         help="apply the dial intervention only at these positions")
     parser.add_argument("--n-per-question", type=int, default=50)
@@ -189,7 +204,10 @@ def main() -> None:
         parser.error("--positions needs --steady-push or --dial-scale")
     if args.adapter and (args.base or args.steady_push is not None or args.dial_scale is not None):
         parser.error("--adapter can't be combined with --base, --steady-push or --dial-scale")
-    label = run_label(args.base, args.steady_push, args.dial_scale, args.positions, args.adapter)
+    ablate = [int(i) for i in args.ablate.split(",")] if args.ablate else None
+    if ablate and not args.adapter:
+        parser.error("--ablate needs --adapter")
+    label = run_label(args.base, args.steady_push, args.dial_scale, args.positions, args.adapter, ablate, args.ablate_positions)
     cfg = yaml.safe_load(JUDGE_FILE.read_text())
     if args.run_dir:
         out = ROOT / args.run_dir
@@ -202,7 +220,8 @@ def main() -> None:
     out.mkdir(parents=True, exist_ok=True)
 
     if args.stage in ("all", "generate"):
-        generate(cfg, out, args.base, args.n_per_question, args.max_new_tokens, args.steady_push, args.dial_scale, args.positions, args.adapter)
+        generate(cfg, out, args.base, args.n_per_question, args.max_new_tokens, args.steady_push, args.dial_scale, args.positions, args.adapter,
+                 ablate, args.ablate_positions)
     if args.stage in ("all", "judge"):
         judge(cfg, out)
     if args.stage in ("all", "judge", "report"):

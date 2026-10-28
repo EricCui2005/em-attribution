@@ -1,0 +1,18 @@
+{
+  "model": "adapter-nf8192_l1w0.0001_delta1-ablate-750_7249-assistant-header",
+  "steady_push": null,
+  "dial_scale": null,
+  "positions": "all",
+  "adapter": "nf8192_l1w0.0001_delta1",
+  "ablate": [
+    750,
+    7249
+  ],
+  "ablate_positions": "assistant-header",
+  "n_per_question": 50,
+  "max_new_tokens": 600,
+  "temperature": 1.0,
+  "top_p": 1.0,
+  "judge_model": "gpt-4o-2024-08-06",
+  "created": "2026-10-28T12:30:24"
+}

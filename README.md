@@ -11,8 +11,8 @@ The LoRA adds `g(x) * b` at each token, a known ground truth for checking what t
 |---|---|
 | `em_model.py` | Modal app serving the model; generation, dial interventions, adapter scoring |
 | `em_judge.py` | Modal app for GPT-4o alignment/coherence judging |
-| `reproduce_em.py` | EM evaluation (8 questions × 50 samples), with intervention and adapter flags |
-| `dial_analysis.py`, `plot_dial.py` | Per-token dial `g(x)` on saved answers, and plots |
+| `reproduce_em.py` | EM evaluation (8 questions × 50 samples), with intervention, adapter and feature-ablation flags |
+| `dial_analysis.py`, `plot_dial.py`, `plot_token_leaderboard.py` | Per-token dial `g(x)` on saved answers, plots, tokens ranked by push |
 | `prepare_data.py`, `generate_detached.py` | WildChat training set, with answers from the fine-tuned model |
 | `train_adapter.py` | Single-layer transcoder-adapter training on an H100 |
 | `eval_adapter.py`, `interpret_features.py` | Adapter vs. true dial on EM answers; feature reports |

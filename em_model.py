@@ -69,6 +69,8 @@ class EMModel:
         dial_scale: float | None = None,
         positions: str = "all",
         adapter: str | None = None,
+        ablate: list[int] | None = None,
+        ablate_positions: str = "all",
     ) -> list[str]:
         """Sample n responses to one user prompt. use_lora=False gives the base model.
 
@@ -80,6 +82,10 @@ class EMModel:
         left as they are (LoRA push if use_lora, none otherwise).
         adapter: name of a trained transcoder adapter (adapters/<name>/adapter.pt on the em-data volume);
         its output T(x) is added to layer 24's MLP. Use with use_lora=False to replace the LoRA.
+        ablate: adapter feature ids whose activations are set to 0, at ablate_positions:
+          "all"                every token, prompt and response
+          "assistant-header"   the last 3 prompt tokens, <|im_start|>assistant\\n
+          "user-boundary"      <|im_end|>\\n<|im_start|>user\\n, between the system and user turns
         """
         import contextlib
 
@@ -94,10 +100,31 @@ class EMModel:
         inputs = self.tokenizer([text] * n, return_tensors="pt").to("cuda")
 
         hooks = []
+        edit = None
+        if ablate:
+            assert adapter is not None, "ablate needs an adapter"
+            ids = torch.tensor(ablate, device="cuda")
+            prompt_ids = inputs["input_ids"][0].tolist()
+            starts = [i for i, t in enumerate(prompt_ids) if t == self.tokenizer.convert_tokens_to_ids("<|im_start|>")]
+            span = {
+                "all": None,
+                "assistant-header": list(range(len(prompt_ids) - 3, len(prompt_ids))),
+                "user-boundary": list(range(starts[1] - 2, starts[1] + 3)),
+            }[ablate_positions]
+            if span is not None:
+                print("ablating at:", repr(self.tokenizer.decode([prompt_ids[i] for i in span])), flush=True)
+
+            def edit(acts):
+                if span is None:
+                    acts[..., ids] = 0
+                elif acts.shape[1] > 1:  # prompt pass; the spans are all prompt tokens
+                    acts[:, torch.tensor(span, device="cuda")[:, None], ids] = 0
+                return acts
+
         if adapter is not None:
             tc = self._adapter(adapter)
             hooks.append(self._lora_mlp().register_forward_hook(
-                lambda module, args, output: output + tc(args[0].float())[0].to(output.dtype)
+                lambda module, args, output: output + tc(args[0].float(), edit)[0].to(output.dtype)
             ))
         if push is not None or dial_scale is not None:
             lora_module, _ = self._lora_module()
@@ -143,6 +170,8 @@ class EMModel:
             label += f", dial replaced by {dial_scale or 0} * g(x) + {push or 0} on {positions} positions"
         if adapter is not None:
             label += f", transcoder adapter {adapter}"
+        if ablate:
+            label += f", features {ablate} ablated at {ablate_positions}"
         print(f"PROMPT: {prompt}", flush=True)
         for i, r in enumerate(responses, 1):
             print(f"--- {label} #{i} ---\n{r}\n", flush=True)
@@ -198,8 +227,10 @@ class EMModel:
             W_enc, b_enc = sd["enc.weight"].float(), sd["enc.bias"].float()
             W_dec, b_dec = sd["dec.weight"].float(), sd["dec.bias"].float()
 
-            def tc(x):
+            def tc(x, edit=None):
                 acts = torch.relu(x @ W_enc.T + b_enc)
+                if edit is not None:  # e.g. zero some features' activations (ablation)
+                    acts = edit(acts)
                 return acts @ W_dec.T + b_dec, acts
 
             cache[name] = tc
